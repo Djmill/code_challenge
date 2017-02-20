@@ -1,0 +1,427 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+  <head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <style>
+      :root {
+        --red-color: #e2aaaa;
+        --blue-color: #99c1cc;
+        --green-color: #99cc99;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      h1, h2, h3, h4, h5, h6 {
+        color: #f90;
+      }
+
+      hr {
+        margin: 15px 0 0 0;
+      }
+
+      .navbar {
+        background: #e0e0e0;
+        margin-bottom: 15px;
+        position: relative;
+      }
+
+      .navbar > h1 {
+        margin: 0 0 0 15px;
+      }
+
+      .navbar > .about {
+        float: right;
+        margin: 10px 15px 0 0;
+      }
+
+      .container {
+        margin: 0 15px 0 15px;
+      }
+
+      .note-form,
+      .update-note {
+        display: none;
+      }
+
+      form.note-form {
+        margin: 15px 0 15px 0;
+      }
+
+      form.note-form > textarea {
+        margin: 15px 0 10px;
+      }
+
+      .btn,
+      .note,
+      .navbar > h1,
+      form.note-form > .note-text,
+      form.note-form > .note-title,
+      form.note-form > .color-selection {
+        display: inline-block;
+      }
+
+      form.note-form > .note-title {
+        float: left;
+      }
+
+      form.note-form > .note-title,
+      form.note-form > .note-text {
+        margin-right: 15px;
+      }
+
+      .btn {
+        background: white;
+        border: 1px solid #999;
+        border-radius: 6px;
+        color: black;
+        padding: 5px;
+        text-decoration: none
+      }
+
+      .btn:hover {
+        background: #e0e0e0;
+      }
+
+      .green {
+        color: var(--green-color);
+      }
+
+      .green-bg {
+        background: var(--green-color);
+      }
+
+      .red {
+        color: var(--red-color);
+      }
+
+      .red-bg {
+        background: var(--red-color);
+      }
+
+      .blue {
+        color: var(--blue-color);
+      }
+
+      .blue-bg {
+        background: var(--blue-color);
+      }
+
+      .note {
+        border-radius: 6px;
+        color: white;
+        float: left;
+        padding: 10px;
+      }
+
+      .note:first-of-type {
+        margin: 10px 10px 10px 0;
+      }
+
+      .note:not(:first-of-type) {
+        margin: 10px;
+      }
+
+      .note > .note-header > h3 {
+        color: white;
+        display: inline-block;
+        float: left;
+        margin: 0 20px 0 0;
+      }
+
+      .note > .note-header > .delete,
+      .note > .note-header > .edit {
+        float: right;
+      }
+
+      .note > .note-header > .edit {
+        margin-right: 5px;
+      }
+
+      .clearfix:after {
+        visibility: hidden;
+        display: block;
+        font-size: 0;
+        content: " ";
+        clear: both;
+        height: 0;
+      }
+
+      * html .clearfix {
+        height: 1%;
+      }
+
+      .clearfix {
+        display: block;
+      }
+    </style>
+
+    <script>
+      function noteHtmlStr(id, title, text, color) {
+        var bgColor = color + "-bg";
+        var noteHtml = "<div class='note note-" + id + " " +  bgColor + "'>";
+        noteHtml += "<div class='note-header clearfix'><h3 id='title-" + id + "'>" + title + "</h3>";
+        noteHtml += "<a id='delete-" + id + "' class='btn delete' href='javascript:void(0);'>Delete</a><a id='edit-" + id + "' class='btn edit' href='javascript:void(0);'>Edit</a></div>"
+        noteHtml += "<p id='text-" + id + "'>" + text + "</p>";
+        noteHtml += "</div>";
+        return noteHtml;
+      }
+
+      var store = {
+        countKey: "note-count",
+        noteKeyPrefix: "note-",
+        init: function() {
+          var loopCount = parseInt(sessionStorage.getItem(store.countKey));
+          if(isNaN(loopCount) || loopCount === undefined || loopCount === null) {
+            sessionStorage.setItem(store.countKey, 0);
+          } else {
+            for(i = 1; i <= loopCount; i++ ) {
+              var note = store.getNote(i);
+              if(note !== 'null') {
+                var noteArr = note.split(",");
+                var id = noteArr[0];
+                var title = noteArr[1];
+                var text = noteArr[2];
+                var color = noteArr[3];
+                var noteHtml = noteHtmlStr(id, title, text, color);
+                $(".notes-container").prepend(noteHtml);
+              }
+            }
+            initDeleteHandler();
+            initEditHandler();
+          }
+        },
+        getNotesCount: function() {
+          var count = parseInt(sessionStorage.getItem(this.countKey));
+          return !isNaN(count) ? count : 0;
+        },
+        incrementCount: function() {
+          sessionStorage.setItem(store.countKey, store.getNotesCount() + 1);
+        },
+        decrementCount: function() {
+          sessionStorage.setItem(store.countKey, store.getNotesCount() - 1);
+        },
+        addNote: function(id, note) {
+          var key = this.noteKeyPrefix + id;
+          sessionStorage.setItem(key, note);
+          store.incrementCount();
+        },
+        getNote: function(id) {
+          return sessionStorage.getItem(this.noteKeyPrefix + id);
+        },
+        deleteNote: function(id) {
+          var key = this.noteKeyPrefix + id;
+          sessionStorage.setItem(key, null);
+        },
+        updateNote: function(id, note) {
+          var key = this.noteKeyPrefix + id;
+          sessionStorage.setItem(key, note);
+        }
+      }
+
+      var noteForm = {
+        newTxt: "+ New Note",
+        newTitle: "Create a note",
+        btn: $(".new-note"),
+        init: function() {
+          $(".new-note").html(this.newTxt);
+
+          $(".new-note").off("click");
+          $(".new-note").on("click", function() {
+            noteForm.btn = $(this);
+            if(!noteForm.btn.hasClass("active")) {
+              noteForm.activate();
+            } else {
+              noteForm.cancel();
+            }
+          });
+        },
+        activate: function(id, title) {
+          noteForm.btn = $(".new-note");
+          noteForm.btn.addClass("active");
+          noteForm.btn.html("Cancel");
+          if(title === undefined || title === null) { // Create note
+            $(".form-title").html(noteForm.newTitle);
+            $(".add-note").show();
+            $(".update-note").hide();
+          } else { // Edit note
+            $(".form-title").html(title);
+            $(".add-note").hide();
+            $(".update-note").show();
+            $(".update-note").attr("data-note-id", id);
+          }
+          $(".note-form").show();
+        },
+        cancel: function() {
+          noteForm.btn.removeClass("active");
+          noteForm.btn.html(noteForm.newTxt);
+          $(".form-title").html("");
+          $(".note-form").hide();
+        },
+        populateForm: function(title, text, color){
+          $("#note-form-title").val(title);
+          $("#note-form-text").val(text);
+          $("input[name='note-color'][value='" + color + "']").prop('checked', 'checked');
+        },
+        resetForm: function() {
+          var titleEle = $("#note-form-title");
+          var textEle = $("#note-form-text");
+          titleEle.val("");
+          textEle.val("");
+          $("input[name='note-color'][value='red']").prop('checked', 'checked');
+          noteForm.cancel(); // Hide the form and reset btn
+        },
+        buildNoteStr: function(editId) {
+          // Grab all of the data
+          var titleEle = $("#note-form-title");
+          var textEle = $("#note-form-text");
+
+          var id;
+          if(editId === undefined || editId === null) {
+            id = store.getNotesCount() + 1;
+          } else {
+            id = editId;
+          }
+          var title = titleEle.val();
+          var text = textEle.val();
+          var color = $("input[name='note-color']:checked").val();
+
+          // Add the note to the store
+          var note = id + "," + title + "," + text + "," + color;
+          return note;
+        }
+      };
+
+      function initDeleteHandler() {
+        $(".delete").off("click");
+        $(".delete").on("click", function() {
+          var id = $(this)[0].id.split('-')[1];
+          store.deleteNote(id);
+          $(".note-" + id).remove();
+        });
+      }
+
+      function initEditHandler() {
+        $(".edit").off("click");
+        $(".edit").on("click", function() {
+          var id = $(this)[0].id.split('-')[1];
+          var noteData = store.getNote(id).split(",");
+          var title = noteData[1];
+          var text = noteData[2];
+          var color = noteData[3];
+
+          noteForm.populateForm(title, text, color);
+          noteForm.activate(id, "Edit Note: " + title);
+        });
+      }
+
+      var updateNoteBtn = {
+        init: function() {
+          $(".update-note").off("click");
+          $(".update-note").on("click", function() {
+            updateNoteBtn.updateNote($(this).attr("data-note-id"));
+          });
+        },
+        updateNote: function(id) {
+          var note = noteForm.buildNoteStr(id);
+          var noteArr = note.split(",");
+          var title = noteArr[1];
+          var text = noteArr[2];
+          var color = noteArr[3];
+          store.updateNote(id, note);
+
+          // Update existing Note UI element
+          var noteEle = $(".note-" + id);
+          if(!noteEle.hasClass(color + "-bg")) {
+            noteEle.removeClass("red-bg");
+            noteEle.removeClass("blue-bg");
+            noteEle.removeClass("green-bg");
+            noteEle.addClass(color + "-bg");
+          }
+
+          $("#title-" + id).html(title);
+          $("#text-" + id).html(text);
+
+          noteForm.resetForm();
+        }
+      }
+
+      var addNoteBtn = {
+        init: function() {
+          $(".add-note").off("click");
+          $(".add-note").on("click", function() {
+            addNoteBtn.createNote();
+          });
+        },
+        createNote: function() {
+          var note = noteForm.buildNoteStr();
+          var noteArr = note.split(",");
+          var id = noteArr[0];
+          var title = noteArr[1];
+          var text = noteArr[2];
+          var color = noteArr[3];
+          // Add note string to the store
+          store.addNote(id, note);
+
+          // Append new note element to UI with proper note ID
+          var noteHtml = noteHtmlStr(id, title, text, color);
+          $(".notes-container").prepend(noteHtml);
+          initDeleteHandler();
+          initEditHandler();
+
+          // Hide form and reset inputs
+          noteForm.resetForm();
+        }
+      };
+
+      $(document).ready(function() {
+        noteForm.init();
+        addNoteBtn.init();
+        updateNoteBtn.init();
+        store.init();
+      });
+    </script>
+  </head>
+  <body>
+    <div class="navbar">
+      <h1>Notes</h1>
+      <div class="about">
+        A simple code challenge
+      </div>
+    </div>
+    <div class="container">
+      <a href="javascript:void(0)" class="btn new-note"></a>
+      <form action="" class="note-form">
+        <h2 class="form-title"></h2>
+        <div class="note-title">
+          <span>Note Title</span>
+          <br/>
+          <input id="note-form-title" type="text" name="note-title">
+        </div>
+        <div class="note-text">
+          <span>Note Text</span>
+          <br/>
+          <textarea id="note-form-text" rows="4" cols="50" placeholder="Enter your notes here..."></textarea>
+        </div>
+        <div class="color-selection">
+          <span>Select your note color</span>
+          <br/>
+          <input type="radio" name="note-color" value="red" checked="checked">
+          <span class="red">Red</span>
+          <br>
+          <input class="green" type="radio" name="note-color" value="green">
+          <span class="green">Green</span>
+          <br>
+          <input class="blue" type="radio" name="note-color" value="blue">
+          <span class="blue">Blue</span>
+        </div>
+        <br/>
+        <a href="javascript:void(0)" class="btn add-note">Create Note</a>
+        <a href="javascript:void(0)" class="btn update-note">Update</a>
+      </form>
+      <hr/>
+      <div class="notes-container"></div>
+    </div>
+  </body>
+</html>
